@@ -6,8 +6,8 @@ This repo contains the official implementation of **["FQ-ViT: Fully Quantized Vi
 
 ## Table of Contents
 - [Introduction](#introduction)
-  - [Layernorm quantized with Powers-of-Two Scale(PTS)](#layernorm-quantized-with-powers-of-two-scalepts)
-  - [Softmax quantized with Log-Int-Softmax(LIS)](#softmax-quantized-with-log-int-softmaxlis)
+  - [Layernorm quantized with Powers-of-Two Scale (PTS)](#layernorm-quantized-with-powers-of-two-scale-pts)
+  - [Softmax quantized with Log-Int-Softmax (LIS)](#softmax-quantized-with-log-int-softmax-lis)
 - [Getting Started](#getting-started)
   - [Install](#install)
   - [Data preparation](#data-preparation)
@@ -20,9 +20,9 @@ This repo contains the official implementation of **["FQ-ViT: Fully Quantized Vi
 
 Transformer-based architectures have achieved competitive performance in various CV tasks. Compared to the CNNs, Transformers usually have more parameters and higher computational costs, presenting a challenge when deployed to resource-constrained hardware devices.
 
-Most existing quantization approaches are designed and tested on CNNs and lack proper handling of Transformer-specific modules. Previous work found there would be significant accuracy degradation when quantizing LayerNorm and Softmax of Transformer-based architectures. As a result, they left **LayerNorm and Softmax unquantized with floating-point numbers**. We revisit these two exclusive modules of the Vision Transformers and discover the reasons for degradation. In this work, we propose the **FQ-ViT**, the first fully quantized Vision Transformer, which contains two specific modules: Powers-of-Two Scale(PTS) and Log-Int-Softmax(LIS). 
+Most existing quantization approaches are designed and tested on CNNs and lack proper handling of Transformer-specific modules. Previous work found there would be significant accuracy degradation when quantizing LayerNorm and Softmax of Transformer-based architectures. As a result, they left **LayerNorm and Softmax unquantized with floating-point numbers**. We revisit these two exclusive modules of the Vision Transformers and discover the reasons for degradation. In this work, we propose the **FQ-ViT**, the first fully quantized Vision Transformer, which contains two specific modules: Powers-of-Two Scale (PTS) and Log-Int-Softmax (LIS). 
 
-### Layernorm quantized with Powers-of-Two Scale(PTS)
+### Layernorm quantized with Powers-of-Two Scale (PTS)
 
   These two figures below show that there exists serious inter-channel variation in Vision Transformers than CNNs, which leads to unacceptable quantization errors with layer-wise quantization. 
 
@@ -32,7 +32,7 @@ Most existing quantization approaches are designed and tested on CNNs and lack p
   
   Taking the advantages of both layer-wise and channel-wise quantization, we propose PTS for LayerNorm's quantization. The core idea of PTS is to equip different channels with different Powers-of-Two Scale factors, rather than different quantization scales. 
 
-### Softmax quantized with Log-Int-Softmax(LIS)
+### Softmax quantized with Log-Int-Softmax (LIS)
 
   The storage and computation of attention map is known as a bottleneck for transformer structures, so we want to quantize it to extreme lower bit-width(e.g. 4-bit). However, if directly implementing 4-bit uniform quantization, there will be severe accuracy degeneration. We observe a distribution centering at a fairly small value of the output of Softmax, while only few outliers have larger values close to 1. Based on the following visualization, Log2 preserves more quantization bins than uniform for the small value interval with dense distribution.
  
