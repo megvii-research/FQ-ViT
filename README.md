@@ -1,4 +1,4 @@
-# FQ-ViT [[arxiv]]()
+# FQ-ViT [[arXiv]]()
 
 
 This repo contains the official implementation of **["FQ-ViT: Fully Quantized Vision Transformer without Retraining"]().**
