@@ -34,7 +34,7 @@ Most existing quantization approaches are designed and tested on CNNs and lack p
 
 ### Softmax quantized with Log-Int-Softmax (LIS)
 
-  The storage and computation of attention map is known as a bottleneck for transformer structures, so we want to quantize it to extreme lower bit-width(e.g. 4-bit). However, if directly implementing 4-bit uniform quantization, there will be severe accuracy degeneration. We observe a distribution centering at a fairly small value of the output of Softmax, while only few outliers have larger values close to 1. Based on the following visualization, Log2 preserves more quantization bins than uniform for the small value interval with dense distribution.
+  The storage and computation of attention map is known as a bottleneck for transformer structures, so we want to quantize it to extreme lower bit-width (e.g. 4-bit). However, if directly implementing 4-bit uniform quantization, there will be severe accuracy degeneration. We observe a distribution centering at a fairly small value of the output of Softmax, while only few outliers have larger values close to 1. Based on the following visualization, Log2 preserves more quantization bins than uniform for the small value interval with dense distribution.
  
   <div align=center>
   <img src="./figures/distribution.png" width="400px" />
