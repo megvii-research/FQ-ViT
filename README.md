@@ -1,7 +1,7 @@
-# FQ-ViT [[arXiv]]()
+# FQ-ViT [[arXiv]](http://arxiv.org/abs/2111.13824)
 
 
-This repo contains the official implementation of **["FQ-ViT: Fully Quantized Vision Transformer without Retraining"]().**
+This repo contains the official implementation of **["FQ-ViT: Fully Quantized Vision Transformer without Retraining"](http://arxiv.org/abs/2111.13824).**
 
 
 ## Table of Contents
@@ -139,12 +139,13 @@ The following results are evaluated on ImageNet.
 If you find this repo useful in your research, please consider citing the following paper:
 
 ```BibTex
-@inproceedings{
-  xxx,
-  title={FQ-ViT: Fully Quantized Vision Transformer without Retraining},
-  author={xxx},
-  booktitle={xxx},
-  year={2021},
-  url={https://arxiv.org/pdf/xxx.xxx.pdf}
+@misc{
+    lin2021fqvit,
+    title={FQ-ViT: Fully Quantized Vision Transformer without Retraining}, 
+    author={Yang Lin and Tianyu Zhang and Peiqin Sun and Zheng Li and Shuchang Zhou},
+    year={2021},
+    eprint={2111.13824},
+    archivePrefix={arXiv},
+    primaryClass={cs.CV}
 }
 ```
