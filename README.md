@@ -139,13 +139,10 @@ The following results are evaluated on ImageNet.
 If you find this repo useful in your research, please consider citing the following paper:
 
 ```BibTex
-@misc{
-    lin2021fqvit,
-    title={FQ-ViT: Fully Quantized Vision Transformer without Retraining}, 
-    author={Yang Lin and Tianyu Zhang and Peiqin Sun and Zheng Li and Shuchang Zhou},
-    year={2021},
-    eprint={2111.13824},
-    archivePrefix={arXiv},
-    primaryClass={cs.CV}
+@article{lin2021fqvit,
+  title={FQ-ViT: Fully Quantized Vision Transformer without Retraining},
+  author={Lin, Yang and Zhang, Tianyu and Sun, Peiqin and Li, Zheng and Zhou, Shuchang},
+  journal={arXiv preprint arXiv:2111.13824},
+  year={2021}
 }
 ```
