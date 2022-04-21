@@ -22,7 +22,7 @@ parser.add_argument("model",
 parser.add_argument('data', metavar='DIR',
                     help='path to dataset')
 parser.add_argument("--quant", default=False, action="store_true")
-parser.add_argument("--pts", default=False, action="store_true")
+parser.add_argument("--ptf", default=False, action="store_true")
 parser.add_argument("--lis", default=False, action="store_true")
 parser.add_argument("--quant-method", default="minmax",
                     choices=["minmax", "ema", "omse", "percentile"])
@@ -75,7 +75,7 @@ def main():
     seed(args.seed)
 
     device = torch.device(args.device)
-    cfg = Config(args.pts, args.lis, args.quant_method)
+    cfg = Config(args.ptf, args.lis, args.quant_method)
     model = str2model(args.model)(pretrained=True, cfg=cfg)
     model = model.to(device)
 

@@ -2,14 +2,14 @@ from .minmax import MinmaxObserver
 from .omse import OmseObserver
 from .ema import EmaObserver
 from .percentile import PercentileObserver
-from .pts import PtsObserver
+from .ptf import PtfObserver
 
 str2observer = {
     "minmax": MinmaxObserver,
     "ema": EmaObserver,
     "omse": OmseObserver,
     "percentile": PercentileObserver,
-    "pts": PtsObserver
+    "ptf": PtfObserver
 }
 
 

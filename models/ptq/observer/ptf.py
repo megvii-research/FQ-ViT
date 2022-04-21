@@ -4,9 +4,9 @@ from .base import BaseObserver
 from .utils import lp_loss
 
 
-class PtsObserver(BaseObserver):
+class PtfObserver(BaseObserver):
     def __init__(self, module_type, bit_type, calibration_mode):
-        super(PtsObserver, self).__init__(
+        super(PtfObserver, self).__init__(
             module_type, bit_type, calibration_mode)
 
     def update(self, v):

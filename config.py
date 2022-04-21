@@ -2,9 +2,9 @@ from models import BIT_TYPE_DICT
 
 
 class Config:
-    def __init__(self, pts=True, lis=True, quant_method='minmax'):
+    def __init__(self, ptf=True, lis=True, quant_method='minmax'):
         '''
-        pts stands for Power-of-Two Scale activation quantization for Integer Layernorm.
+        ptf stands for Power-of-Two Factor activation quantization for Integer Layernorm.
         lis stands for Log-Int-Softmax.
         These two are proposed in our "FQ-ViT: Fully Quantized Vision Transformer without Retraining".
         '''
@@ -32,9 +32,9 @@ class Config:
             self.BIT_TYPE_S = BIT_TYPE_DICT["uint8"]
             self.OBSERVER_S = self.OBSERVER_A
             self.QUANTIZER_S = self.QUANTIZER_A
-        if pts:
+        if ptf:
             self.INT_NORM = True
-            self.OBSERVER_A_LN = "pts"
+            self.OBSERVER_A_LN = "ptf"
             self.CALIBRATION_MODE_A_LN = "channel_wise"
         else:
             self.INT_NORM = False
