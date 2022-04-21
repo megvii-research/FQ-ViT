@@ -1,7 +1,7 @@
 # FQ-ViT [[arXiv]](http://arxiv.org/abs/2111.13824)
 
 
-This repo contains the official implementation of **["FQ-ViT: Fully Quantized Vision Transformer without Retraining"](http://arxiv.org/abs/2111.13824).**
+This repo contains the official implementation of **["FQ-ViT: Post-Training Quantization for Fully Quantized Vision Transformer"](http://arxiv.org/abs/2111.13824).**
 
 
 ## Table of Contents
