@@ -6,7 +6,7 @@ class Config:
         '''
         ptf stands for Power-of-Two Factor activation quantization for Integer Layernorm.
         lis stands for Log-Int-Softmax.
-        These two are proposed in our "FQ-ViT: Fully Quantized Vision Transformer without Retraining".
+        These two are proposed in our "FQ-ViT: Post-Training Quantization for Fully Quantized Vision Transformer".
         '''
         self.BIT_TYPE_W = BIT_TYPE_DICT["int8"]
         self.BIT_TYPE_A = BIT_TYPE_DICT["uint8"]
