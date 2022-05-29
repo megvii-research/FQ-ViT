@@ -164,7 +164,6 @@ def validate(args, val_loader, model, criterion, device):
 
     val_start_time = end = time.time()
     for i, (data, target) in enumerate(val_loader):
-        target = target.to(device)
         data = data.to(device)
         target = target.to(device)
 
