@@ -1,4 +1,4 @@
-# copyright (c) megvii inc. all rights reserved.
+# Copyright (c) MEGVII Inc. and its affiliates. All Rights Reserved.
 import torch
 import torch.nn as nn
 from torch.nn import functional as F

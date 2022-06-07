@@ -1,4 +1,4 @@
-# copyright (c) megvii inc. all rights reserved.
+# Copyright (c) MEGVII Inc. and its affiliates. All Rights Reserved.
 from .ema import EmaObserver
 from .minmax import MinmaxObserver
 from .omse import OmseObserver

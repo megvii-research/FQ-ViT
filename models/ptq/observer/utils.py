@@ -1,4 +1,4 @@
-# copyright (c) megvii inc. all rights reserved.
+# Copyright (c) MEGVII Inc. and its affiliates. All Rights Reserved.
 def lp_loss(pred, tgt, p=2.0, reduction='none'):
     """
     loss function measured in L_p Norm

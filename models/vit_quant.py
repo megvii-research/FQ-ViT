@@ -1,4 +1,4 @@
-# copyright (c) megvii inc. all rights reserved.
+# Copyright (c) MEGVII Inc. and its affiliates. All Rights Reserved.
 import collections.abc
 import math
 import os
@@ -382,6 +382,8 @@ class VisionTransformer(nn.Module):
     def forward_features(self, x):
         B = x.shape[0]
 
+        import pdb
+        pdb.set_trace()
         if self.input_quant:
             x = self.qact_input(x)
 
