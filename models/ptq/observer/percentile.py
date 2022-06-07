@@ -1,4 +1,4 @@
-# copyright (c) megvii inc. all rights reserved.
+# Copyright (c) MEGVII Inc. and its affiliates. All Rights Reserved.
 import numpy as np
 import torch
 import torch.nn as nn
