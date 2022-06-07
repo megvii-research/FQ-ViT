@@ -1,3 +1,4 @@
+# copyright (c) megvii inc. all rights reserved.
 import torch
 
 from .base import BaseObserver
@@ -5,9 +6,10 @@ from .utils import lp_loss
 
 
 class OmseObserver(BaseObserver):
+
     def __init__(self, module_type, bit_type, calibration_mode):
-        super(OmseObserver, self).__init__(
-            module_type, bit_type, calibration_mode)
+        super(OmseObserver, self).__init__(module_type, bit_type,
+                                           calibration_mode)
 
     def update(self, v):
         v = self.reshape_tensor(v)
@@ -22,7 +24,7 @@ class OmseObserver(BaseObserver):
         else:
             self.min_val = torch.min(cur_min, self.min_val)
 
-        if self.calibration_mode == "layer_wise":
+        if self.calibration_mode == 'layer_wise':
             self.max_val = self.max_val.max()
             self.min_val = self.min_val.min()
 
@@ -40,11 +42,11 @@ class OmseObserver(BaseObserver):
             new_scale.clamp_(self.eps)
             new_zero_point = qmin - torch.round(new_min / new_scale)
             new_zero_point.clamp_(qmin, qmax)
-            inputs_q = ((inputs / new_scale + new_zero_point).round().clamp(qmin,
-                        qmax) - new_zero_point) * new_scale
+            inputs_q = ((inputs / new_scale + new_zero_point).round().clamp(
+                qmin, qmax) - new_zero_point) * new_scale
             # L_p norm minimization as described in LAPQ
             # https://arxiv.org/abs/1911.07190
-            score = lp_loss(inputs, inputs_q, p=2.0, reduction="all")
+            score = lp_loss(inputs, inputs_q, p=2.0, reduction='all')
             if score < best_score:
                 best_score = score
                 self.max_val = new_max

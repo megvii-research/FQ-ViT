@@ -1,3 +1,4 @@
+# copyright (c) megvii inc. all rights reserved.
 import numpy as np
 import torch
 import torch.nn as nn
@@ -6,26 +7,36 @@ from .base import BaseObserver
 
 
 class PercentileObserver(BaseObserver):
-    def __init__(self, module_type, bit_type, calibration_mode,
-                 percentile_sigma=0.01, percentile_alpha=0.99999):
-        super(PercentileObserver, self).__init__(
-            module_type, bit_type, calibration_mode)
+
+    def __init__(self,
+                 module_type,
+                 bit_type,
+                 calibration_mode,
+                 percentile_sigma=0.01,
+                 percentile_alpha=0.99999):
+        super(PercentileObserver, self).__init__(module_type, bit_type,
+                                                 calibration_mode)
         self.percentile_sigma = 0.01
         self.percentile_alpha = 0.99999
         self.symmetric = self.bit_type.signed
 
     def update(self, v):
         # channel-wise needs too much time.
-        assert self.calibration_mode == "layer_wise"
+        assert self.calibration_mode == 'layer_wise'
         v = self.reshape_tensor(v)
         try:
             cur_max = torch.quantile(v.reshape(-1), self.percentile_alpha)
-            cur_min = torch.quantile(v.reshape(-1), 1.0-self.percentile_alpha)
+            cur_min = torch.quantile(v.reshape(-1),
+                                     1.0 - self.percentile_alpha)
         except:
             cur_max = torch.tensor(np.percentile(
-                v.reshape(-1).cpu(), self.percentile_alpha*100), device=v.device, dtype=torch.float32)
+                v.reshape(-1).cpu(), self.percentile_alpha * 100),
+                                   device=v.device,
+                                   dtype=torch.float32)
             cur_min = torch.tensor(np.percentile(
-                v.reshape(-1).cpu(), (1-self.percentile_alpha)*100),  device=v.device, dtype=torch.float32)
+                v.reshape(-1).cpu(), (1 - self.percentile_alpha) * 100),
+                                   device=v.device,
+                                   dtype=torch.float32)
         if self.max_val is None:
             self.max_val = cur_max
         else:
@@ -51,8 +62,7 @@ class PercentileObserver(BaseObserver):
             max_val = torch.max(-min_val, max_val)
             scale = max_val / (float(qmax - qmin) / 2)
             scale.clamp_(self.eps)
-            zero_point = torch.zeros_like(
-                max_val, dtype=torch.int64)
+            zero_point = torch.zeros_like(max_val, dtype=torch.int64)
         else:
             scale = (max_val - min_val) / float(qmax - qmin)
             scale.clamp_(self.eps)

@@ -1,3 +1,4 @@
+# copyright (c) megvii inc. all rights reserved.
 import math
 from typing import Optional
 
@@ -5,12 +6,14 @@ import torch
 import torch.nn as nn
 import torch.utils.checkpoint as checkpoint
 
-from .ptq import QConv2d, QLinear, QAct, QIntSoftmax, QIntLayerNorm
-from .layers_quant import PatchEmbed, HybridEmbed, Mlp, DropPath, trunc_normal_, to_2tuple
+from .layers_quant import (DropPath, HybridEmbed, Mlp, PatchEmbed, to_2tuple,
+                           trunc_normal_)
+from .ptq import QAct, QConv2d, QIntLayerNorm, QIntSoftmax, QLinear
 
-
-__all__ = ['swin_tiny_patch4_window7_224',
-           'swin_small_patch4_window7_224', 'swin_base_patch4_window7_224']
+__all__ = [
+    'swin_tiny_patch4_window7_224', 'swin_small_patch4_window7_224',
+    'swin_base_patch4_window7_224'
+]
 
 
 def window_partition(x, window_size: int):
@@ -23,10 +26,10 @@ def window_partition(x, window_size: int):
         windows: (num_windows*B, window_size, window_size, C)
     """
     B, H, W, C = x.shape
-    x = x.view(B, H // window_size, window_size,
-               W // window_size, window_size, C)
-    windows = x.permute(0, 1, 3, 2, 4, 5).contiguous(
-    ).view(-1, window_size, window_size, C)
+    x = x.view(B, H // window_size, window_size, W // window_size, window_size,
+               C)
+    windows = x.permute(0, 1, 3, 2, 4,
+                        5).contiguous().view(-1, window_size, window_size, C)
     return windows
 
 
@@ -42,8 +45,8 @@ def window_reverse(windows, window_size: int, H: int, W: int):
         x: (B, H, W, C)
     """
     B = int(windows.shape[0] / (H * W / window_size / window_size))
-    x = windows.view(B, H // window_size, W // window_size,
-                     window_size, window_size, -1)
+    x = windows.view(B, H // window_size, W // window_size, window_size,
+                     window_size, -1)
     x = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(B, H, W, -1)
     return x
 
@@ -61,19 +64,28 @@ class WindowAttention(nn.Module):
         proj_drop (float, optional): Dropout ratio of output. Default: 0.0
     """
 
-    def __init__(self, dim, window_size, num_heads, qkv_bias=True, attn_drop=0., proj_drop=0.,
-                 quant=False, calibrate=False, cfg=None):
+    def __init__(self,
+                 dim,
+                 window_size,
+                 num_heads,
+                 qkv_bias=True,
+                 attn_drop=0.,
+                 proj_drop=0.,
+                 quant=False,
+                 calibrate=False,
+                 cfg=None):
 
         super().__init__()
         self.dim = dim
         self.window_size = window_size  # Wh, Ww
         self.num_heads = num_heads
         head_dim = dim // num_heads
-        self.scale = head_dim ** -0.5
+        self.scale = head_dim**-0.5
 
         # define a parameter table of relative position bias
         self.relative_position_bias_table = nn.Parameter(
-            torch.zeros((2 * window_size[0] - 1) * (2 * window_size[1] - 1), num_heads))  # 2*Wh-1 * 2*Ww-1, nH
+            torch.zeros((2 * window_size[0] - 1) * (2 * window_size[1] - 1),
+                        num_heads))  # 2*Wh-1 * 2*Ww-1, nH
 
         # get pair-wise relative position index for each token inside the window
         coords_h = torch.arange(self.window_size[0])
@@ -89,53 +101,43 @@ class WindowAttention(nn.Module):
         relative_coords[:, :, 1] += self.window_size[1] - 1
         relative_coords[:, :, 0] *= 2 * self.window_size[1] - 1
         relative_position_index = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
-        self.register_buffer("relative_position_index",
+        self.register_buffer('relative_position_index',
                              relative_position_index)
 
         # self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
-        self.qkv = QLinear(
-            dim,
-            dim * 3,
-            bias=qkv_bias,
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_W,
-            calibration_mode=cfg.CALIBRATION_MODE_W,
-            observer_str=cfg.OBSERVER_W,
-            quantizer_str=cfg.QUANTIZER_W
-        )
-        self.qact1 = QAct(
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_A,
-            calibration_mode=cfg.CALIBRATION_MODE_A,
-            observer_str=cfg.OBSERVER_A,
-            quantizer_str=cfg.QUANTIZER_A
-        )
-        self.qact_attn1 = QAct(
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_A,
-            calibration_mode=cfg.CALIBRATION_MODE_A,
-            observer_str=cfg.OBSERVER_A,
-            quantizer_str=cfg.QUANTIZER_A
-        )
-        self.qact_table = QAct(
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_A,
-            calibration_mode=cfg.CALIBRATION_MODE_A,
-            observer_str=cfg.OBSERVER_A,
-            quantizer_str=cfg.QUANTIZER_A
-        )
-        self.qact2 = QAct(
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_A,
-            calibration_mode=cfg.CALIBRATION_MODE_A,
-            observer_str=cfg.OBSERVER_A,
-            quantizer_str=cfg.QUANTIZER_A
-        )
+        self.qkv = QLinear(dim,
+                           dim * 3,
+                           bias=qkv_bias,
+                           quant=quant,
+                           calibrate=calibrate,
+                           bit_type=cfg.BIT_TYPE_W,
+                           calibration_mode=cfg.CALIBRATION_MODE_W,
+                           observer_str=cfg.OBSERVER_W,
+                           quantizer_str=cfg.QUANTIZER_W)
+        self.qact1 = QAct(quant=quant,
+                          calibrate=calibrate,
+                          bit_type=cfg.BIT_TYPE_A,
+                          calibration_mode=cfg.CALIBRATION_MODE_A,
+                          observer_str=cfg.OBSERVER_A,
+                          quantizer_str=cfg.QUANTIZER_A)
+        self.qact_attn1 = QAct(quant=quant,
+                               calibrate=calibrate,
+                               bit_type=cfg.BIT_TYPE_A,
+                               calibration_mode=cfg.CALIBRATION_MODE_A,
+                               observer_str=cfg.OBSERVER_A,
+                               quantizer_str=cfg.QUANTIZER_A)
+        self.qact_table = QAct(quant=quant,
+                               calibrate=calibrate,
+                               bit_type=cfg.BIT_TYPE_A,
+                               calibration_mode=cfg.CALIBRATION_MODE_A,
+                               observer_str=cfg.OBSERVER_A,
+                               quantizer_str=cfg.QUANTIZER_A)
+        self.qact2 = QAct(quant=quant,
+                          calibrate=calibrate,
+                          bit_type=cfg.BIT_TYPE_A,
+                          calibration_mode=cfg.CALIBRATION_MODE_A,
+                          observer_str=cfg.OBSERVER_A,
+                          quantizer_str=cfg.QUANTIZER_A)
 
         self.attn_drop = nn.Dropout(attn_drop)
         self.log_int_softmax = QIntSoftmax(
@@ -145,35 +147,28 @@ class WindowAttention(nn.Module):
             bit_type=cfg.BIT_TYPE_S,
             calibration_mode=cfg.CALIBRATION_MODE_S,
             observer_str=cfg.OBSERVER_S,
-            quantizer_str=cfg.QUANTIZER_S
-        )
-        self.qact3 = QAct(
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_A,
-            calibration_mode=cfg.CALIBRATION_MODE_A,
-            observer_str=cfg.OBSERVER_A,
-            quantizer_str=cfg.QUANTIZER_A
-        )
-        self.qact4 = QAct(
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_A,
-            calibration_mode=cfg.CALIBRATION_MODE_A,
-            observer_str=cfg.OBSERVER_A,
-            quantizer_str=cfg.QUANTIZER_A
-        )
+            quantizer_str=cfg.QUANTIZER_S)
+        self.qact3 = QAct(quant=quant,
+                          calibrate=calibrate,
+                          bit_type=cfg.BIT_TYPE_A,
+                          calibration_mode=cfg.CALIBRATION_MODE_A,
+                          observer_str=cfg.OBSERVER_A,
+                          quantizer_str=cfg.QUANTIZER_A)
+        self.qact4 = QAct(quant=quant,
+                          calibrate=calibrate,
+                          bit_type=cfg.BIT_TYPE_A,
+                          calibration_mode=cfg.CALIBRATION_MODE_A,
+                          observer_str=cfg.OBSERVER_A,
+                          quantizer_str=cfg.QUANTIZER_A)
         # self.proj = nn.Linear(dim, dim)
-        self.proj = QLinear(
-            dim,
-            dim,
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_W,
-            calibration_mode=cfg.CALIBRATION_MODE_W,
-            observer_str=cfg.OBSERVER_W,
-            quantizer_str=cfg.QUANTIZER_W
-        )
+        self.proj = QLinear(dim,
+                            dim,
+                            quant=quant,
+                            calibrate=calibrate,
+                            bit_type=cfg.BIT_TYPE_W,
+                            calibration_mode=cfg.CALIBRATION_MODE_W,
+                            observer_str=cfg.OBSERVER_W,
+                            quantizer_str=cfg.QUANTIZER_W)
         self.proj_drop = nn.Dropout(proj_drop)
 
         trunc_normal_(self.relative_position_bias_table, std=.02)
@@ -188,8 +183,8 @@ class WindowAttention(nn.Module):
         B_, N, C = x.shape
         x = self.qkv(x)
         x = self.qact1(x)
-        qkv = x.reshape(B_, N, 3, self.num_heads, C //
-                        self.num_heads).permute(2, 0, 3, 1, 4)
+        qkv = x.reshape(B_, N, 3, self.num_heads,
+                        C // self.num_heads).permute(2, 0, 3, 1, 4)
         # make torchscript happy (cannot use tensor as tuple)
         q, k, v = qkv[0], qkv[1], qkv[2]
 
@@ -198,8 +193,11 @@ class WindowAttention(nn.Module):
         attn = self.qact_attn1(attn)
         relative_position_bias_table_q = self.qact_table(
             self.relative_position_bias_table)
-        relative_position_bias = relative_position_bias_table_q[self.relative_position_index.view(-1)].view(
-            self.window_size[0] * self.window_size[1], self.window_size[0] * self.window_size[1], -1)  # Wh*Ww,Wh*Ww,nH
+        relative_position_bias = relative_position_bias_table_q[
+            self.relative_position_index.view(-1)].view(
+                self.window_size[0] * self.window_size[1],
+                self.window_size[0] * self.window_size[1],
+                -1)  # Wh*Ww,Wh*Ww,nH
         relative_position_bias = relative_position_bias.permute(
             2, 0, 1).contiguous()  # nH, Wh*Ww, Wh*Ww
         attn = attn + relative_position_bias.unsqueeze(0)
@@ -241,9 +239,21 @@ class SwinTransformerBlock(nn.Module):
         norm_layer (nn.Module, optional): Normalization layer.  Default: nn.LayerNorm
     """
 
-    def __init__(self, dim, input_resolution, num_heads, window_size=7, shift_size=0,
-                 mlp_ratio=4., qkv_bias=True, drop=0., attn_drop=0., drop_path=0.,
-                 act_layer=nn.GELU, norm_layer=nn.LayerNorm, quant=False, calibrate=False,
+    def __init__(self,
+                 dim,
+                 input_resolution,
+                 num_heads,
+                 window_size=7,
+                 shift_size=0,
+                 mlp_ratio=4.,
+                 qkv_bias=True,
+                 drop=0.,
+                 attn_drop=0.,
+                 drop_path=0.,
+                 act_layer=nn.GELU,
+                 norm_layer=nn.LayerNorm,
+                 quant=False,
+                 calibrate=False,
                  cfg=None):
         super().__init__()
         self.dim = dim
@@ -256,61 +266,64 @@ class SwinTransformerBlock(nn.Module):
             # if window size is larger than input resolution, we don't partition windows
             self.shift_size = 0
             self.window_size = min(self.input_resolution)
-        assert 0 <= self.shift_size < self.window_size, "shift_size must in 0-window_size"
+        assert 0 <= self.shift_size < self.window_size, 'shift_size must in 0-window_size'
 
         self.norm1 = norm_layer(dim)
-        self.qact1 = QAct(
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_A,
-            calibration_mode=cfg.CALIBRATION_MODE_A,
-            observer_str=cfg.OBSERVER_A,
-            quantizer_str=cfg.QUANTIZER_A
-        )
-        self.attn = WindowAttention(
-            dim, window_size=to_2tuple(self.window_size), num_heads=num_heads, qkv_bias=qkv_bias,
-            attn_drop=attn_drop, proj_drop=drop, quant=quant, calibrate=calibrate, cfg=cfg)
+        self.qact1 = QAct(quant=quant,
+                          calibrate=calibrate,
+                          bit_type=cfg.BIT_TYPE_A,
+                          calibration_mode=cfg.CALIBRATION_MODE_A,
+                          observer_str=cfg.OBSERVER_A,
+                          quantizer_str=cfg.QUANTIZER_A)
+        self.attn = WindowAttention(dim,
+                                    window_size=to_2tuple(self.window_size),
+                                    num_heads=num_heads,
+                                    qkv_bias=qkv_bias,
+                                    attn_drop=attn_drop,
+                                    proj_drop=drop,
+                                    quant=quant,
+                                    calibrate=calibrate,
+                                    cfg=cfg)
 
         self.drop_path = DropPath(
             drop_path) if drop_path > 0. else nn.Identity()
-        self.qact2 = QAct(
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_A,
-            calibration_mode=cfg.CALIBRATION_MODE_A_LN,
-            observer_str=cfg.OBSERVER_A_LN,
-            quantizer_str=cfg.QUANTIZER_A_LN
-        )
+        self.qact2 = QAct(quant=quant,
+                          calibrate=calibrate,
+                          bit_type=cfg.BIT_TYPE_A,
+                          calibration_mode=cfg.CALIBRATION_MODE_A_LN,
+                          observer_str=cfg.OBSERVER_A_LN,
+                          quantizer_str=cfg.QUANTIZER_A_LN)
         self.norm2 = norm_layer(dim)
-        self.qact3 = QAct(
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_A,
-            calibration_mode=cfg.CALIBRATION_MODE_A,
-            observer_str=cfg.OBSERVER_A,
-            quantizer_str=cfg.QUANTIZER_A
-        )
+        self.qact3 = QAct(quant=quant,
+                          calibrate=calibrate,
+                          bit_type=cfg.BIT_TYPE_A,
+                          calibration_mode=cfg.CALIBRATION_MODE_A,
+                          observer_str=cfg.OBSERVER_A,
+                          quantizer_str=cfg.QUANTIZER_A)
         mlp_hidden_dim = int(dim * mlp_ratio)
-        self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer,
-                       drop=drop, quant=quant, calibrate=calibrate, cfg=cfg)
-        self.qact4 = QAct(
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_A,
-            calibration_mode=cfg.CALIBRATION_MODE_A_LN,
-            observer_str=cfg.OBSERVER_A_LN,
-            quantizer_str=cfg.QUANTIZER_A_LN
-        )
+        self.mlp = Mlp(in_features=dim,
+                       hidden_features=mlp_hidden_dim,
+                       act_layer=act_layer,
+                       drop=drop,
+                       quant=quant,
+                       calibrate=calibrate,
+                       cfg=cfg)
+        self.qact4 = QAct(quant=quant,
+                          calibrate=calibrate,
+                          bit_type=cfg.BIT_TYPE_A,
+                          calibration_mode=cfg.CALIBRATION_MODE_A_LN,
+                          observer_str=cfg.OBSERVER_A_LN,
+                          quantizer_str=cfg.QUANTIZER_A_LN)
         if self.shift_size > 0:
             # calculate attention mask for SW-MSA
             H, W = self.input_resolution
             img_mask = torch.zeros((1, H, W, 1))  # 1 H W 1
             h_slices = (slice(0, -self.window_size),
-                        slice(-self.window_size, -self.shift_size),
-                        slice(-self.shift_size, None))
+                        slice(-self.window_size,
+                              -self.shift_size), slice(-self.shift_size, None))
             w_slices = (slice(0, -self.window_size),
-                        slice(-self.window_size, -self.shift_size),
-                        slice(-self.shift_size, None))
+                        slice(-self.window_size,
+                              -self.shift_size), slice(-self.shift_size, None))
             cnt = 0
             for h in h_slices:
                 for w in w_slices:
@@ -319,20 +332,21 @@ class SwinTransformerBlock(nn.Module):
 
             # nW, window_size, window_size, 1
             mask_windows = window_partition(img_mask, self.window_size)
-            mask_windows = mask_windows.view(-1,
-                                             self.window_size * self.window_size)
+            mask_windows = mask_windows.view(
+                -1, self.window_size * self.window_size)
             attn_mask = mask_windows.unsqueeze(1) - mask_windows.unsqueeze(2)
-            attn_mask = attn_mask.masked_fill(
-                attn_mask != 0, float(-100.0)).masked_fill(attn_mask == 0, float(0.0))
+            attn_mask = attn_mask.masked_fill(attn_mask != 0,
+                                              float(-100.0)).masked_fill(
+                                                  attn_mask == 0, float(0.0))
         else:
             attn_mask = None
 
-        self.register_buffer("attn_mask", attn_mask)
+        self.register_buffer('attn_mask', attn_mask)
 
     def forward(self, x, last_quantizer=None):
         H, W = self.input_resolution
         B, L, C = x.shape
-        assert L == H * W, "input feature has wrong size"
+        assert L == H * W, 'input feature has wrong size'
 
         shortcut = x
         x = self.norm1(x, last_quantizer, self.qact1.quantizer)
@@ -341,8 +355,9 @@ class SwinTransformerBlock(nn.Module):
 
         # cyclic shift
         if self.shift_size > 0:
-            shifted_x = torch.roll(
-                x, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
+            shifted_x = torch.roll(x,
+                                   shifts=(-self.shift_size, -self.shift_size),
+                                   dims=(1, 2))
         else:
             shifted_x = x
 
@@ -357,15 +372,16 @@ class SwinTransformerBlock(nn.Module):
         attn_windows = self.attn(x_windows, mask=self.attn_mask)
 
         # merge windows
-        attn_windows = attn_windows.view(-1,
-                                         self.window_size, self.window_size, C)
-        shifted_x = window_reverse(
-            attn_windows, self.window_size, H, W)  # B H' W' C
+        attn_windows = attn_windows.view(-1, self.window_size,
+                                         self.window_size, C)
+        shifted_x = window_reverse(attn_windows, self.window_size, H,
+                                   W)  # B H' W' C
 
         # reverse cyclic shift
         if self.shift_size > 0:
-            x = torch.roll(shifted_x, shifts=(
-                self.shift_size, self.shift_size), dims=(1, 2))
+            x = torch.roll(shifted_x,
+                           shifts=(self.shift_size, self.shift_size),
+                           dims=(1, 2))
         else:
             x = shifted_x
         x = x.view(B, H * W, C)
@@ -373,8 +389,11 @@ class SwinTransformerBlock(nn.Module):
         # FFN
         x = shortcut + self.drop_path(x)
         x = self.qact2(x)
-        x = x + self.drop_path(self.mlp(self.qact3(self.norm2(x,
-                               self.qact2.quantizer, self.qact3.quantizer))))
+        x = x + self.drop_path(
+            self.mlp(
+                self.qact3(
+                    self.norm2(x, self.qact2.quantizer,
+                               self.qact3.quantizer))))
         x = self.qact4(x)
 
         return x
@@ -389,41 +408,40 @@ class PatchMerging(nn.Module):
         norm_layer (nn.Module, optional): Normalization layer.  Default: nn.LayerNorm
     """
 
-    def __init__(self, input_resolution, dim, norm_layer=nn.LayerNorm,
-                 quant=False, calibrate=False, cfg=None):
+    def __init__(self,
+                 input_resolution,
+                 dim,
+                 norm_layer=nn.LayerNorm,
+                 quant=False,
+                 calibrate=False,
+                 cfg=None):
         super().__init__()
         self.input_resolution = input_resolution
         self.dim = dim
 
         self.norm = norm_layer(4 * dim)
-        self.qact1 = QAct(
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_A,
-            calibration_mode=cfg.CALIBRATION_MODE_A,
-            observer_str=cfg.OBSERVER_A,
-            quantizer_str=cfg.QUANTIZER_A
-        )
+        self.qact1 = QAct(quant=quant,
+                          calibrate=calibrate,
+                          bit_type=cfg.BIT_TYPE_A,
+                          calibration_mode=cfg.CALIBRATION_MODE_A,
+                          observer_str=cfg.OBSERVER_A,
+                          quantizer_str=cfg.QUANTIZER_A)
         # self.reduction = nn.Linear(4 * dim, 2 * dim, bias=False)
-        self.reduction = QLinear(
-            4 * dim,
-            2 * dim,
-            bias=False,
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_W,
-            calibration_mode=cfg.CALIBRATION_MODE_W,
-            observer_str=cfg.OBSERVER_W,
-            quantizer_str=cfg.QUANTIZER_W
-        )
-        self.qact2 = QAct(
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_A,
-            calibration_mode=cfg.CALIBRATION_MODE_A_LN,
-            observer_str=cfg.OBSERVER_A_LN,
-            quantizer_str=cfg.QUANTIZER_A_LN
-        )
+        self.reduction = QLinear(4 * dim,
+                                 2 * dim,
+                                 bias=False,
+                                 quant=quant,
+                                 calibrate=calibrate,
+                                 bit_type=cfg.BIT_TYPE_W,
+                                 calibration_mode=cfg.CALIBRATION_MODE_W,
+                                 observer_str=cfg.OBSERVER_W,
+                                 quantizer_str=cfg.QUANTIZER_W)
+        self.qact2 = QAct(quant=quant,
+                          calibrate=calibrate,
+                          bit_type=cfg.BIT_TYPE_A,
+                          calibration_mode=cfg.CALIBRATION_MODE_A_LN,
+                          observer_str=cfg.OBSERVER_A_LN,
+                          quantizer_str=cfg.QUANTIZER_A_LN)
 
     def forward(self, x, last_quantizer=None):
         """
@@ -431,8 +449,8 @@ class PatchMerging(nn.Module):
         """
         H, W = self.input_resolution
         B, L, C = x.shape
-        assert L == H * W, "input feature has wrong size"
-        assert H % 2 == 0 and W % 2 == 0, f"x size ({H}*{W}) are not even."
+        assert L == H * W, 'input feature has wrong size'
+        assert H % 2 == 0 and W % 2 == 0, f'x size ({H}*{W}) are not even.'
 
         x = x.view(B, H, W, C)
 
@@ -449,7 +467,7 @@ class PatchMerging(nn.Module):
         return x
 
     def extra_repr(self) -> str:
-        return f"input_resolution={self.input_resolution}, dim={self.dim}"
+        return f'input_resolution={self.input_resolution}, dim={self.dim}'
 
     def flops(self):
         H, W = self.input_resolution
@@ -477,10 +495,23 @@ class BasicLayer(nn.Module):
         use_checkpoint (bool): Whether to use checkpointing to save memory. Default: False.
     """
 
-    def __init__(self, dim, input_resolution, depth, num_heads, window_size,
-                 mlp_ratio=4., qkv_bias=True, drop=0., attn_drop=0.,
-                 drop_path=0., norm_layer=nn.LayerNorm, downsample=None, use_checkpoint=False,
-                 quant=False, calibrate=False, cfg=None):
+    def __init__(self,
+                 dim,
+                 input_resolution,
+                 depth,
+                 num_heads,
+                 window_size,
+                 mlp_ratio=4.,
+                 qkv_bias=True,
+                 drop=0.,
+                 attn_drop=0.,
+                 drop_path=0.,
+                 norm_layer=nn.LayerNorm,
+                 downsample=None,
+                 use_checkpoint=False,
+                 quant=False,
+                 calibrate=False,
+                 cfg=None):
 
         super().__init__()
         self.dim = dim
@@ -490,18 +521,32 @@ class BasicLayer(nn.Module):
 
         # build blocks
         self.blocks = nn.ModuleList([
-            SwinTransformerBlock(
-                dim=dim, input_resolution=input_resolution, num_heads=num_heads, window_size=window_size,
-                shift_size=0 if (i % 2 == 0) else window_size // 2, mlp_ratio=mlp_ratio,
-                qkv_bias=qkv_bias, drop=drop, attn_drop=attn_drop,
-                drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path, norm_layer=norm_layer,
-                quant=quant, calibrate=calibrate, cfg=cfg)
-            for i in range(depth)])
+            SwinTransformerBlock(dim=dim,
+                                 input_resolution=input_resolution,
+                                 num_heads=num_heads,
+                                 window_size=window_size,
+                                 shift_size=0 if
+                                 (i % 2 == 0) else window_size // 2,
+                                 mlp_ratio=mlp_ratio,
+                                 qkv_bias=qkv_bias,
+                                 drop=drop,
+                                 attn_drop=attn_drop,
+                                 drop_path=drop_path[i] if isinstance(
+                                     drop_path, list) else drop_path,
+                                 norm_layer=norm_layer,
+                                 quant=quant,
+                                 calibrate=calibrate,
+                                 cfg=cfg) for i in range(depth)
+        ])
 
         # patch merging layer
         if downsample is not None:
-            self.downsample = downsample(input_resolution, dim=dim, norm_layer=norm_layer,
-                                         quant=quant, calibrate=calibrate, cfg=cfg)
+            self.downsample = downsample(input_resolution,
+                                         dim=dim,
+                                         norm_layer=norm_layer,
+                                         quant=quant,
+                                         calibrate=calibrate,
+                                         cfg=cfg)
         else:
             self.downsample = None
 
@@ -513,13 +558,13 @@ class BasicLayer(nn.Module):
                 if i == 0:
                     x = blk(x, last_quantizer)
                 else:
-                    x = blk(x, self.blocks[i-1].qact4.quantizer)
+                    x = blk(x, self.blocks[i - 1].qact4.quantizer)
         if self.downsample is not None:
             x = self.downsample(x, self.blocks[-1].qact4.quantizer)
         return x
 
     def extra_repr(self) -> str:
-        return f"dim={self.dim}, input_resolution={self.input_resolution}, depth={self.depth}"
+        return f'dim={self.dim}, input_resolution={self.input_resolution}, depth={self.depth}'
 
 
 class SwinTransformer(nn.Module):
@@ -547,13 +592,29 @@ class SwinTransformer(nn.Module):
         use_checkpoint (bool): Whether to use checkpointing to save memory. Default: False
     """
 
-    def __init__(self, img_size=224, patch_size=4, in_chans=3, num_classes=1000,
-                 embed_dim=96, depths=(2, 2, 6, 2), num_heads=(3, 6, 12, 24),
-                 window_size=7, mlp_ratio=4., qkv_bias=True,
-                 drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
-                 norm_layer=nn.LayerNorm, ape=False, patch_norm=True,
-                 use_checkpoint=False, quant=False, calibrate=False,
-                 input_quant=False, cfg=None, **kwargs):
+    def __init__(self,
+                 img_size=224,
+                 patch_size=4,
+                 in_chans=3,
+                 num_classes=1000,
+                 embed_dim=96,
+                 depths=(2, 2, 6, 2),
+                 num_heads=(3, 6, 12, 24),
+                 window_size=7,
+                 mlp_ratio=4.,
+                 qkv_bias=True,
+                 drop_rate=0.,
+                 attn_drop_rate=0.,
+                 drop_path_rate=0.1,
+                 norm_layer=nn.LayerNorm,
+                 ape=False,
+                 patch_norm=True,
+                 use_checkpoint=False,
+                 quant=False,
+                 calibrate=False,
+                 input_quant=False,
+                 cfg=None,
+                 **kwargs):
         super().__init__()
 
         self.num_classes = num_classes
@@ -561,23 +622,26 @@ class SwinTransformer(nn.Module):
         self.embed_dim = embed_dim
         self.ape = ape
         self.patch_norm = patch_norm
-        self.num_features = int(embed_dim * 2 ** (self.num_layers - 1))
+        self.num_features = int(embed_dim * 2**(self.num_layers - 1))
         self.mlp_ratio = mlp_ratio
         self.input_quant = input_quant
         self.cfg = cfg
         if input_quant:
-            self.qact_input = QAct(
-                quant=quant,
-                calibrate=calibrate,
-                bit_type=cfg.BIT_TYPE_A,
-                calibration_mode=cfg.CALIBRATION_MODE_A,
-                observer_str=cfg.OBSERVER_A,
-                quantizer_str=cfg.QUANTIZER_A
-            )
+            self.qact_input = QAct(quant=quant,
+                                   calibrate=calibrate,
+                                   bit_type=cfg.BIT_TYPE_A,
+                                   calibration_mode=cfg.CALIBRATION_MODE_A,
+                                   observer_str=cfg.OBSERVER_A,
+                                   quantizer_str=cfg.QUANTIZER_A)
         # split image into non-overlapping patches
         self.patch_embed = PatchEmbed(
-            img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim,
-            norm_layer=norm_layer if self.patch_norm else None, quant=quant, calibrate=calibrate,
+            img_size=img_size,
+            patch_size=patch_size,
+            in_chans=in_chans,
+            embed_dim=embed_dim,
+            norm_layer=norm_layer if self.patch_norm else None,
+            quant=quant,
+            calibrate=calibrate,
             cfg=cfg)
         num_patches = self.patch_embed.num_patches
         self.patch_grid = self.patch_embed.grid_size
@@ -587,86 +651,80 @@ class SwinTransformer(nn.Module):
             self.absolute_pos_embed = nn.Parameter(
                 torch.zeros(1, num_patches, embed_dim))
             trunc_normal_(self.absolute_pos_embed, std=.02)
-            self.qact1 = QAct(
-                quant=quant,
-                calibrate=calibrate,
-                bit_type=cfg.BIT_TYPE_A,
-                calibration_mode=cfg.CALIBRATION_MODE_LN,
-                observer_str=cfg.OBSERVER_LN,
-                quantizer_str=cfg.QUANTIZER_LN
-            )
+            self.qact1 = QAct(quant=quant,
+                              calibrate=calibrate,
+                              bit_type=cfg.BIT_TYPE_A,
+                              calibration_mode=cfg.CALIBRATION_MODE_LN,
+                              observer_str=cfg.OBSERVER_LN,
+                              quantizer_str=cfg.QUANTIZER_LN)
         else:
             self.absolute_pos_embed = None
 
         self.pos_drop = nn.Dropout(p=drop_rate)
 
         # stochastic depth
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate,
-                                                sum(depths))]  # stochastic depth decay rule
+        dpr = [
+            x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))
+        ]  # stochastic depth decay rule
 
         # build layers
         layers = []
         for i_layer in range(self.num_layers):
-            layers += [BasicLayer(
-                dim=int(embed_dim * 2 ** i_layer),
-                input_resolution=(
-                    self.patch_grid[0] // (2 ** i_layer), self.patch_grid[1] // (2 ** i_layer)),
-                depth=depths[i_layer],
-                num_heads=num_heads[i_layer],
-                window_size=window_size,
-                mlp_ratio=self.mlp_ratio,
-                qkv_bias=qkv_bias,
-                drop=drop_rate,
-                attn_drop=attn_drop_rate,
-                drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
-                norm_layer=norm_layer,
-                downsample=PatchMerging if (
-                    i_layer < self.num_layers - 1) else None,
-                use_checkpoint=use_checkpoint,
-                quant=quant,
-                calibrate=calibrate,
-                cfg=cfg)
+            layers += [
+                BasicLayer(
+                    dim=int(embed_dim * 2**i_layer),
+                    input_resolution=(self.patch_grid[0] // (2**i_layer),
+                                      self.patch_grid[1] // (2**i_layer)),
+                    depth=depths[i_layer],
+                    num_heads=num_heads[i_layer],
+                    window_size=window_size,
+                    mlp_ratio=self.mlp_ratio,
+                    qkv_bias=qkv_bias,
+                    drop=drop_rate,
+                    attn_drop=attn_drop_rate,
+                    drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer +
+                                                                   1])],
+                    norm_layer=norm_layer,
+                    downsample=PatchMerging if
+                    (i_layer < self.num_layers - 1) else None,
+                    use_checkpoint=use_checkpoint,
+                    quant=quant,
+                    calibrate=calibrate,
+                    cfg=cfg)
             ]
         self.layers = nn.Sequential(*layers)
 
         self.norm = norm_layer(self.num_features)
 
-        self.qact2 = QAct(
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_A,
-            calibration_mode=cfg.CALIBRATION_MODE_A,
-            observer_str=cfg.OBSERVER_A,
-            quantizer_str=cfg.QUANTIZER_A
-        )
+        self.qact2 = QAct(quant=quant,
+                          calibrate=calibrate,
+                          bit_type=cfg.BIT_TYPE_A,
+                          calibration_mode=cfg.CALIBRATION_MODE_A,
+                          observer_str=cfg.OBSERVER_A,
+                          quantizer_str=cfg.QUANTIZER_A)
         self.avgpool = nn.AdaptiveAvgPool1d(1)
-        self.qact3 = QAct(
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_A,
-            calibration_mode=cfg.CALIBRATION_MODE_A,
-            observer_str=cfg.OBSERVER_A,
-            quantizer_str=cfg.QUANTIZER_A
-        )
-        self.head = QLinear(
-            self.num_features,
-            num_classes,
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_W,
-            calibration_mode=cfg.CALIBRATION_MODE_W,
-            observer_str=cfg.OBSERVER_W,
-            quantizer_str=cfg.QUANTIZER_W
-        ) if num_classes > 0 else nn.Identity()
+        self.qact3 = QAct(quant=quant,
+                          calibrate=calibrate,
+                          bit_type=cfg.BIT_TYPE_A,
+                          calibration_mode=cfg.CALIBRATION_MODE_A,
+                          observer_str=cfg.OBSERVER_A,
+                          quantizer_str=cfg.QUANTIZER_A)
+        self.head = QLinear(self.num_features,
+                            num_classes,
+                            quant=quant,
+                            calibrate=calibrate,
+                            bit_type=cfg.BIT_TYPE_W,
+                            calibration_mode=cfg.CALIBRATION_MODE_W,
+                            observer_str=cfg.OBSERVER_W,
+                            quantizer_str=cfg.QUANTIZER_W
+                            ) if num_classes > 0 else nn.Identity()
 
-        self.act_out = QAct(
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_A,
-            calibration_mode=cfg.CALIBRATION_MODE_A,
-            observer_str=cfg.OBSERVER_A,
-            quantizer_str=cfg.QUANTIZER_A
-        )
+        self.act_out = QAct(quant=quant,
+                            calibrate=calibrate,
+                            bit_type=cfg.BIT_TYPE_A,
+                            calibration_mode=cfg.CALIBRATION_MODE_A,
+                            observer_str=cfg.OBSERVER_A,
+                            quantizer_str=cfg.QUANTIZER_A)
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
@@ -691,16 +749,15 @@ class SwinTransformer(nn.Module):
 
     def reset_classifier(self, num_classes, global_pool=''):
         self.num_classes = num_classes
-        self.head = QLinear(
-            self.num_features,
-            num_classes,
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_W,
-            calibration_mode=cfg.CALIBRATION_MODE_W,
-            observer_str=cfg.OBSERVER_W,
-            quantizer_str=cfg.QUANTIZER_W
-        ) if num_classes > 0 else nn.Identity()
+        self.head = QLinear(self.num_features,
+                            num_classes,
+                            quant=quant,
+                            calibrate=calibrate,
+                            bit_type=cfg.BIT_TYPE_W,
+                            calibration_mode=cfg.CALIBRATION_MODE_W,
+                            observer_str=cfg.OBSERVER_W,
+                            quantizer_str=cfg.QUANTIZER_W
+                            ) if num_classes > 0 else nn.Identity()
 
     def model_quant(self):
         for m in self.modules():
@@ -740,11 +797,11 @@ class SwinTransformer(nn.Module):
         x = self.pos_drop(x)
         for i, layer in enumerate(self.layers):
             last_quantizer = self.patch_embed.qact.quantizer if i == 0 else self.layers[
-                i-1].downsample.qact2.quantizer
+                i - 1].downsample.qact2.quantizer
             x = layer(x, last_quantizer)
 
-        x = self.norm(
-            x, self.layers[-1].blocks[-1].qact4.quantizer, self.qact2.quantizer)  # B L C
+        x = self.norm(x, self.layers[-1].blocks[-1].qact4.quantizer,
+                      self.qact2.quantizer)  # B L C
         x = self.qact2(x)
 
         x = self.avgpool(x.transpose(1, 2))  # B C 1
@@ -760,76 +817,85 @@ class SwinTransformer(nn.Module):
         return x
 
 
-def swin_tiny_patch4_window7_224(pretrained=False, quant=False, calibrate=False, cfg=None, **kwargs):
+def swin_tiny_patch4_window7_224(pretrained=False,
+                                 quant=False,
+                                 calibrate=False,
+                                 cfg=None,
+                                 **kwargs):
     """ Swin-T @ 224x224, trained ImageNet-1k
     """
-    model = SwinTransformer(
-        patch_size=4,
-        window_size=7,
-        embed_dim=96,
-        depths=(2, 2, 6, 2),
-        num_heads=(3, 6, 12, 24),
-        norm_layer=QIntLayerNorm,
-        quant=quant,
-        calibrate=calibrate,
-        input_quant=True,
-        cfg=cfg,
-        **kwargs
-    )
+    model = SwinTransformer(patch_size=4,
+                            window_size=7,
+                            embed_dim=96,
+                            depths=(2, 2, 6, 2),
+                            num_heads=(3, 6, 12, 24),
+                            norm_layer=QIntLayerNorm,
+                            quant=quant,
+                            calibrate=calibrate,
+                            input_quant=True,
+                            cfg=cfg,
+                            **kwargs)
     if pretrained:
         checkpoint = torch.hub.load_state_dict_from_url(
-            url="https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_tiny_patch4_window7_224.pth",
-            map_location="cpu", check_hash=True
-        )
-        model.load_state_dict(checkpoint["model"], strict=False)
+            url=
+            'https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_tiny_patch4_window7_224.pth',
+            map_location='cpu',
+            check_hash=True)
+        model.load_state_dict(checkpoint['model'], strict=False)
     return model
 
 
-def swin_small_patch4_window7_224(pretrained=False, quant=False, calibrate=False, cfg=None, **kwargs):
+def swin_small_patch4_window7_224(pretrained=False,
+                                  quant=False,
+                                  calibrate=False,
+                                  cfg=None,
+                                  **kwargs):
     """ Swin-S @ 224x224, trained ImageNet-1k
     """
-    model = SwinTransformer(
-        patch_size=4,
-        window_size=7,
-        embed_dim=96,
-        depths=(2, 2, 18, 2),
-        num_heads=(3, 6, 12, 24),
-        norm_layer=QIntLayerNorm,
-        quant=quant,
-        calibrate=calibrate,
-        input_quant=True,
-        cfg=cfg,
-        **kwargs
-    )
+    model = SwinTransformer(patch_size=4,
+                            window_size=7,
+                            embed_dim=96,
+                            depths=(2, 2, 18, 2),
+                            num_heads=(3, 6, 12, 24),
+                            norm_layer=QIntLayerNorm,
+                            quant=quant,
+                            calibrate=calibrate,
+                            input_quant=True,
+                            cfg=cfg,
+                            **kwargs)
     if pretrained:
         checkpoint = torch.hub.load_state_dict_from_url(
-            url="https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_small_patch4_window7_224.pth",
-            map_location="cpu", check_hash=True
-        )
-        model.load_state_dict(checkpoint["model"], strict=False)
+            url=
+            'https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_small_patch4_window7_224.pth',
+            map_location='cpu',
+            check_hash=True)
+        model.load_state_dict(checkpoint['model'], strict=False)
     return model
 
 
-def swin_base_patch4_window7_224(pretrained=False, quant=False, calibrate=False, cfg=None, **kwargs):
+def swin_base_patch4_window7_224(pretrained=False,
+                                 quant=False,
+                                 calibrate=False,
+                                 cfg=None,
+                                 **kwargs):
     """ Swin-B @ 224x224, trained ImageNet-1k
     """
-    model = SwinTransformer(
-        patch_size=4,
-        window_size=7,
-        embed_dim=128,
-        depths=(2, 2, 18, 2),
-        num_heads=(4, 8, 16, 32),
-        norm_layer=QIntLayerNorm,
-        quant=quant,
-        calibrate=calibrate,
-        input_quant=True,
-        cfg=cfg,
-        **kwargs
-    )
+    model = SwinTransformer(patch_size=4,
+                            window_size=7,
+                            embed_dim=128,
+                            depths=(2, 2, 18, 2),
+                            num_heads=(4, 8, 16, 32),
+                            norm_layer=QIntLayerNorm,
+                            quant=quant,
+                            calibrate=calibrate,
+                            input_quant=True,
+                            cfg=cfg,
+                            **kwargs)
     if pretrained:
         checkpoint = torch.hub.load_state_dict_from_url(
-            url="https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_base_patch4_window7_224.pth",
-            map_location="cpu", check_hash=True
-        )
-        model.load_state_dict(checkpoint["model"], strict=False)
+            url=
+            'https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_base_patch4_window7_224.pth',
+            map_location='cpu',
+            check_hash=True)
+        model.load_state_dict(checkpoint['model'], strict=False)
     return model

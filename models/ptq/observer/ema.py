@@ -1,12 +1,18 @@
+# copyright (c) megvii inc. all rights reserved.
 import torch
 
 from .base import BaseObserver
 
 
 class EmaObserver(BaseObserver):
-    def __init__(self, module_type, bit_type, calibration_mode, ema_sigma=0.01):
-        super(EmaObserver, self).__init__(
-            module_type, bit_type, calibration_mode)
+
+    def __init__(self,
+                 module_type,
+                 bit_type,
+                 calibration_mode,
+                 ema_sigma=0.01):
+        super(EmaObserver, self).__init__(module_type, bit_type,
+                                          calibration_mode)
         self.ema_sigma = ema_sigma
         self.symmetric = self.bit_type.signed
 
@@ -25,7 +31,7 @@ class EmaObserver(BaseObserver):
             self.min_val = self.min_val + \
                 self.ema_sigma * (cur_min - self.min_val)
 
-        if self.calibration_mode == "layer_wise":
+        if self.calibration_mode == 'layer_wise':
             self.max_val = self.max_val.max()
             self.min_val = self.min_val.min()
 
@@ -43,8 +49,7 @@ class EmaObserver(BaseObserver):
             max_val = torch.max(-min_val, max_val)
             scale = max_val / (float(qmax - qmin) / 2)
             scale.clamp_(self.eps)
-            zero_point = torch.zeros_like(
-                max_val, dtype=torch.int64)
+            zero_point = torch.zeros_like(max_val, dtype=torch.int64)
         else:
             scale = (max_val - min_val) / float(qmax - qmin)
             scale.clamp_(self.eps)
