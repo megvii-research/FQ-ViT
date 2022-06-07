@@ -1,16 +1,18 @@
+# copyright (c) megvii inc. all rights reserved.
+import collections.abc
 import math
 import warnings
 from itertools import repeat
-import collections.abc
 
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
 
-from .ptq import QConv2d, QLinear, QAct
+from .ptq import QAct, QConv2d, QLinear
 
 
 def _ntuple(n):
+
     def parse(x):
         if isinstance(x, collections.abc.Iterable):
             return x
@@ -31,8 +33,8 @@ def _no_grad_trunc_normal_(tensor, mean, std, a, b):
 
     if (mean < a - 2 * std) or (mean > b + 2 * std):
         warnings.warn(
-            "mean is more than 2 std from [a, b] in nn.init.trunc_normal_. "
-            "The distribution of values may be incorrect.",
+            'mean is more than 2 std from [a, b] in nn.init.trunc_normal_. '
+            'The distribution of values may be incorrect.',
             stacklevel=2,
         )
 
@@ -92,9 +94,8 @@ def drop_path(x, drop_prob: float = 0.0, training: bool = False):
     if drop_prob == 0.0 or not training:
         return x
     keep_prob = 1 - drop_prob
-    shape = (x.shape[0],) + (1,) * (
-        x.ndim - 1
-    )  # work with diff dim tensors, not just 2D ConvNets
+    shape = (x.shape[0], ) + (1, ) * (
+        x.ndim - 1)  # work with diff dim tensors, not just 2D ConvNets
     random_tensor = keep_prob + \
         torch.rand(shape, dtype=x.dtype, device=x.device)
     random_tensor.floor_()  # binarize
@@ -114,58 +115,50 @@ class DropPath(nn.Module):
 
 
 class Mlp(nn.Module):
-    def __init__(
-            self,
-            in_features,
-            hidden_features=None,
-            out_features=None,
-            act_layer=nn.GELU,
-            drop=0.0,
-            quant=False,
-            calibrate=False,
-            cfg=None):
+
+    def __init__(self,
+                 in_features,
+                 hidden_features=None,
+                 out_features=None,
+                 act_layer=nn.GELU,
+                 drop=0.0,
+                 quant=False,
+                 calibrate=False,
+                 cfg=None):
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
         # self.fc1 = nn.Linear(in_features, hidden_features)
-        self.fc1 = QLinear(
-            in_features,
-            hidden_features,
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_W,
-            calibration_mode=cfg.CALIBRATION_MODE_W,
-            observer_str=cfg.OBSERVER_W,
-            quantizer_str=cfg.QUANTIZER_W
-        )
+        self.fc1 = QLinear(in_features,
+                           hidden_features,
+                           quant=quant,
+                           calibrate=calibrate,
+                           bit_type=cfg.BIT_TYPE_W,
+                           calibration_mode=cfg.CALIBRATION_MODE_W,
+                           observer_str=cfg.OBSERVER_W,
+                           quantizer_str=cfg.QUANTIZER_W)
         self.act = act_layer()
-        self.qact1 = QAct(
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_A,
-            calibration_mode=cfg.CALIBRATION_MODE_A,
-            observer_str=cfg.OBSERVER_A,
-            quantizer_str=cfg.QUANTIZER_A
-        )
+        self.qact1 = QAct(quant=quant,
+                          calibrate=calibrate,
+                          bit_type=cfg.BIT_TYPE_A,
+                          calibration_mode=cfg.CALIBRATION_MODE_A,
+                          observer_str=cfg.OBSERVER_A,
+                          quantizer_str=cfg.QUANTIZER_A)
         # self.fc2 = nn.Linear(hidden_features, out_features)
-        self.fc2 = QLinear(
-            hidden_features,
-            out_features,
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_W,
-            calibration_mode=cfg.CALIBRATION_MODE_W,
-            observer_str=cfg.OBSERVER_W,
-            quantizer_str=cfg.QUANTIZER_W
-        )
-        self.qact2 = QAct(
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_A,
-            calibration_mode=cfg.CALIBRATION_MODE_A,
-            observer_str=cfg.OBSERVER_A,
-            quantizer_str=cfg.QUANTIZER_A
-        )
+        self.fc2 = QLinear(hidden_features,
+                           out_features,
+                           quant=quant,
+                           calibrate=calibrate,
+                           bit_type=cfg.BIT_TYPE_W,
+                           calibration_mode=cfg.CALIBRATION_MODE_W,
+                           observer_str=cfg.OBSERVER_W,
+                           quantizer_str=cfg.QUANTIZER_W)
+        self.qact2 = QAct(quant=quant,
+                          calibrate=calibrate,
+                          bit_type=cfg.BIT_TYPE_A,
+                          calibration_mode=cfg.CALIBRATION_MODE_A,
+                          observer_str=cfg.OBSERVER_A,
+                          quantizer_str=cfg.QUANTIZER_A)
         self.drop = nn.Dropout(drop)
 
     def forward(self, x):
@@ -182,8 +175,15 @@ class Mlp(nn.Module):
 class PatchEmbed(nn.Module):
     """Image to Patch Embedding"""
 
-    def __init__(self, img_size=224, patch_size=16, in_chans=3, embed_dim=768, norm_layer=None,
-                 quant=False, calibrate=False, cfg=None):
+    def __init__(self,
+                 img_size=224,
+                 patch_size=16,
+                 in_chans=3,
+                 embed_dim=768,
+                 norm_layer=None,
+                 quant=False,
+                 calibrate=False,
+                 cfg=None):
         super().__init__()
         img_size = to_2tuple(img_size)
         patch_size = to_2tuple(patch_size)
@@ -194,18 +194,16 @@ class PatchEmbed(nn.Module):
                           img_size[1] // patch_size[1])
         self.num_patches = self.grid_size[0] * self.grid_size[1]
 
-        self.proj = QConv2d(
-            in_chans,
-            embed_dim,
-            kernel_size=patch_size,
-            stride=patch_size,
-            quant=quant,
-            calibrate=calibrate,
-            bit_type=cfg.BIT_TYPE_W,
-            calibration_mode=cfg.CALIBRATION_MODE_W,
-            observer_str=cfg.OBSERVER_W,
-            quantizer_str=cfg.QUANTIZER_W
-        )
+        self.proj = QConv2d(in_chans,
+                            embed_dim,
+                            kernel_size=patch_size,
+                            stride=patch_size,
+                            quant=quant,
+                            calibrate=calibrate,
+                            bit_type=cfg.BIT_TYPE_W,
+                            calibration_mode=cfg.CALIBRATION_MODE_W,
+                            observer_str=cfg.OBSERVER_W,
+                            quantizer_str=cfg.QUANTIZER_W)
         if norm_layer:
             self.qact_before_norm = QAct(
                 quant=quant,
@@ -213,28 +211,23 @@ class PatchEmbed(nn.Module):
                 bit_type=cfg.BIT_TYPE_A,
                 calibration_mode=cfg.CALIBRATION_MODE_A,
                 observer_str=cfg.OBSERVER_A,
-                quantizer_str=cfg.QUANTIZER_A
-            )
+                quantizer_str=cfg.QUANTIZER_A)
             self.norm = norm_layer(embed_dim)
-            self.qact = QAct(
-                quant=quant,
-                calibrate=calibrate,
-                bit_type=cfg.BIT_TYPE_A,
-                calibration_mode=cfg.CALIBRATION_MODE_A,
-                observer_str=cfg.OBSERVER_A,
-                quantizer_str=cfg.QUANTIZER_A
-            )
+            self.qact = QAct(quant=quant,
+                             calibrate=calibrate,
+                             bit_type=cfg.BIT_TYPE_A,
+                             calibration_mode=cfg.CALIBRATION_MODE_A,
+                             observer_str=cfg.OBSERVER_A,
+                             quantizer_str=cfg.QUANTIZER_A)
         else:
             self.qact_before_norm = nn.Identity()
             self.norm = nn.Identity()
-            self.qact = QAct(
-                quant=quant,
-                calibrate=calibrate,
-                bit_type=cfg.BIT_TYPE_A,
-                calibration_mode=cfg.CALIBRATION_MODE_A,
-                observer_str=cfg.OBSERVER_A,
-                quantizer_str=cfg.QUANTIZER_A
-            )
+            self.qact = QAct(quant=quant,
+                             calibrate=calibrate,
+                             bit_type=cfg.BIT_TYPE_A,
+                             calibration_mode=cfg.CALIBRATION_MODE_A,
+                             observer_str=cfg.OBSERVER_A,
+                             quantizer_str=cfg.QUANTIZER_A)
 
     def forward(self, x):
         B, C, H, W = x.shape
@@ -258,8 +251,12 @@ class HybridEmbed(nn.Module):
     Extract feature map from CNN, flatten, project to embedding dim.
     """
 
-    def __init__(
-            self, backbone, img_size=224, feature_size=None, in_chans=3, embed_dim=768):
+    def __init__(self,
+                 backbone,
+                 img_size=224,
+                 feature_size=None,
+                 in_chans=3,
+                 embed_dim=768):
         super().__init__()
         assert isinstance(backbone, nn.Module)
         img_size = to_2tuple(img_size)
@@ -273,8 +270,8 @@ class HybridEmbed(nn.Module):
                 training = backbone.training
                 if training:
                     backbone.eval()
-                o = self.backbone(torch.zeros(
-                    1, in_chans, img_size[0], img_size[1]))
+                o = self.backbone(
+                    torch.zeros(1, in_chans, img_size[0], img_size[1]))
                 if isinstance(o, (list, tuple)):
                     # last feature if backbone outputs list/tuple of features
                     o = o[-1]
@@ -283,7 +280,7 @@ class HybridEmbed(nn.Module):
                 backbone.train(training)
         else:
             feature_size = to_2tuple(feature_size)
-            if hasattr(self.backbone, "feature_info"):
+            if hasattr(self.backbone, 'feature_info'):
                 feature_dim = self.backbone.feature_info.channels()[-1]
             else:
                 feature_dim = self.backbone.num_features
@@ -293,6 +290,7 @@ class HybridEmbed(nn.Module):
     def forward(self, x):
         x = self.backbone(x)
         if isinstance(x, (list, tuple)):
-            x = x[-1]  # last feature if backbone outputs list/tuple of features
+            x = x[
+                -1]  # last feature if backbone outputs list/tuple of features
         x = self.proj(x).flatten(2).transpose(1, 2)
         return x

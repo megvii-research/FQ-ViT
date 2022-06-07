@@ -24,18 +24,18 @@ Most existing quantization approaches are designed and tested on CNNs and lack p
 
 ### Layernorm quantized with Power-of-Two Factor (PTF)
 
-  These two figures below show that there exists serious inter-channel variation in Vision Transformers than CNNs, which leads to unacceptable quantization errors with layer-wise quantization. 
+  These two figures below show that there exists serious inter-channel variation in Vision Transformers than CNNs, which leads to unacceptable quantization errors with layer-wise quantization.
 
   <div align=center>
   <img src="./figures/inter-channel_variation.png" width="850px" />
   </div>
-  
+
   Taking the advantages of both layer-wise and channel-wise quantization, we propose PTF for LayerNorm's quantization. The core idea of PTF is to equip different channels with different Power-of-Two Factors, rather than different quantization scales.
 
 ### Softmax quantized with Log-Int-Softmax (LIS)
 
   The storage and computation of attention map is known as a bottleneck for transformer structures, so we want to quantize it to extreme lower bit-width (e.g. 4-bit). However, if directly implementing 4-bit uniform quantization, there will be severe accuracy degeneration. We observe a distribution centering at a fairly small value of the output of Softmax, while only few outliers have larger values close to 1. Based on the following visualization, Log2 preserves more quantization bins than uniform for the small value interval with dense distribution.
- 
+
   <div align=center>
   <img src="./figures/distribution.png" width="400px" />
   </div>

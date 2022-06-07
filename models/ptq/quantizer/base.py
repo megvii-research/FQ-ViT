@@ -1,13 +1,11 @@
+# copyright (c) megvii inc. all rights reserved.
 import torch
 import torch.nn as nn
 
 
 class BaseQuantizer(nn.Module):
-    def __init__(
-            self,
-            bit_type,
-            observer,
-            module_type):
+
+    def __init__(self, bit_type, observer, module_type):
         super(BaseQuantizer, self).__init__()
         self.bit_type = bit_type
         self.observer = observer
@@ -15,11 +13,11 @@ class BaseQuantizer(nn.Module):
 
     def get_reshape_range(self, inputs):
         range_shape = None
-        if self.module_type == "conv_weight":
+        if self.module_type == 'conv_weight':
             range_shape = (-1, 1, 1, 1)
-        elif self.module_type == "linear_weight":
+        elif self.module_type == 'linear_weight':
             range_shape = (-1, 1)
-        elif self.module_type == "activation":
+        elif self.module_type == 'activation':
             if len(inputs.shape) == 2:
                 range_shape = (1, -1)
             elif len(inputs.shape) == 3:

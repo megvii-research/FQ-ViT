@@ -1,3 +1,4 @@
+# copyright (c) megvii inc. all rights reserved.
 import torch
 import torch.nn as nn
 
@@ -5,15 +6,9 @@ from .base import BaseQuantizer
 
 
 class UniformQuantizer(BaseQuantizer):
-    def __init__(
-            self,
-            bit_type,
-            observer,
-            module_type):
-        super(UniformQuantizer, self).__init__(
-            bit_type,
-            observer,
-            module_type)
+
+    def __init__(self, bit_type, observer, module_type):
+        super(UniformQuantizer, self).__init__(bit_type, observer, module_type)
         self.scale = None
         self.zero_point = None
 
@@ -30,8 +25,8 @@ class UniformQuantizer(BaseQuantizer):
         scale = scale.reshape(range_shape)
         zero_point = zero_point.reshape(range_shape)
         outputs = inputs / scale + zero_point
-        outputs = outputs.round().clamp(
-            self.bit_type.lower_bound, self.bit_type.upper_bound)
+        outputs = outputs.round().clamp(self.bit_type.lower_bound,
+                                        self.bit_type.upper_bound)
         return outputs
 
     def dequantize(self, inputs, scale=None, zero_point=None):

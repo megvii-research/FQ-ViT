@@ -1,3 +1,4 @@
+# copyright (c) megvii inc. all rights reserved.
 import torch
 
 from .base import BaseObserver
@@ -5,9 +6,10 @@ from .utils import lp_loss
 
 
 class PtfObserver(BaseObserver):
+
     def __init__(self, module_type, bit_type, calibration_mode):
-        super(PtfObserver, self).__init__(
-            module_type, bit_type, calibration_mode)
+        super(PtfObserver, self).__init__(module_type, bit_type,
+                                          calibration_mode)
 
     def update(self, v):
         v = self.reshape_tensor(v)
@@ -22,7 +24,7 @@ class PtfObserver(BaseObserver):
         else:
             self.min_val = torch.min(cur_min, self.min_val)
 
-        if self.calibration_mode == "layer_wise":
+        if self.calibration_mode == 'layer_wise':
             self.max_val = self.max_val.max()
             self.min_val = self.min_val.min()
 
@@ -46,18 +48,18 @@ class PtfObserver(BaseObserver):
         scale_mask = torch.ones_like(max_val)
         for j in range(inputs.shape[2]):
             data = inputs[..., j].unsqueeze(-1)
-            data_q1 = (
-                (data / scale1 + zero_point).round().clamp(qmin, qmax) - zero_point) * scale1
-            data_q2 = (
-                (data / scale2 + zero_point).round().clamp(qmin, qmax) - zero_point) * scale2
-            data_q4 = (
-                (data / scale4 + zero_point).round().clamp(qmin, qmax) - zero_point) * scale4
-            data_q8 = (
-                (data / scale8 + zero_point).round().clamp(qmin, qmax) - zero_point) * scale8
-            score1 = lp_loss(data, data_q1, p=2.0, reduction="all")
-            score2 = lp_loss(data, data_q2, p=2.0, reduction="all")
-            score4 = lp_loss(data, data_q4, p=2.0, reduction="all")
-            score8 = lp_loss(data, data_q8, p=2.0, reduction="all")
+            data_q1 = ((data / scale1 + zero_point).round().clamp(qmin, qmax) -
+                       zero_point) * scale1
+            data_q2 = ((data / scale2 + zero_point).round().clamp(qmin, qmax) -
+                       zero_point) * scale2
+            data_q4 = ((data / scale4 + zero_point).round().clamp(qmin, qmax) -
+                       zero_point) * scale4
+            data_q8 = ((data / scale8 + zero_point).round().clamp(qmin, qmax) -
+                       zero_point) * scale8
+            score1 = lp_loss(data, data_q1, p=2.0, reduction='all')
+            score2 = lp_loss(data, data_q2, p=2.0, reduction='all')
+            score4 = lp_loss(data, data_q4, p=2.0, reduction='all')
+            score8 = lp_loss(data, data_q8, p=2.0, reduction='all')
             score = [score1, score2, score4, score8]
             scale_mask[j] *= 2**score.index(min(score))
         scale = scale1 * scale_mask
