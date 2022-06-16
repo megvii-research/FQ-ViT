@@ -135,5 +135,6 @@ If you find this repo useful in your research, please consider citing the follow
 ```
 
 ## Join Us
-Welcome to be a member(or an intern) of our team if you are interested in Quantization, Pruning, Distillation, Self Supervised Learning and Deployment. 
+Welcome to be a member (or an intern) of our team if you are interested in Quantization, Pruning, Distillation, Self-Supervised Learning and Model Deployment.
+
 Please send your resume to sunpeiqin@megvii.com.
