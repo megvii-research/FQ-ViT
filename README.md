@@ -1,4 +1,4 @@
-# FQ-ViT [[arXiv]](http://arxiv.org/abs/2111.13824)
+# FQ-ViT [[arXiv]](http://arxiv.org/abs/2111.13824) [[Slide]](https://github.com/megvii-research/megvii-tsinghua-dl-course/blob/2829138057a30df8797efb7cd3c1072042d9575e/quant-vision-transformer.pdf)
 
 
 This repo contains the official implementation of **["FQ-ViT: Post-Training Quantization for Fully Quantized Vision Transformer"](http://arxiv.org/abs/2111.13824).**
