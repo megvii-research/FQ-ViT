@@ -127,11 +127,12 @@ The following results are evaluated on ImageNet.
 If you find this repo useful in your research, please consider citing the following paper:
 
 ```BibTex
-@article{lin2021fqvit,
-  title={FQ-ViT: Fully Quantized Vision Transformer without Retraining},
+@inproceedings{lin2022fqvit,
+  title={FQ-ViT: Post-Training Quantization for Fully Quantized Vision Transformer},
   author={Lin, Yang and Zhang, Tianyu and Sun, Peiqin and Li, Zheng and Zhou, Shuchang},
-  journal={arXiv preprint arXiv:2111.13824},
-  year={2021}
+  booktitle={Proceedings of the Thirty-First International Joint Conference on Artificial Intelligence, {IJCAI-22}},
+  pages={1173--1179},
+  year={2022}
 }
 ```
 
