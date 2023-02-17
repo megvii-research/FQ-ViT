@@ -157,9 +157,9 @@ class QIntLayerNorm(nn.LayerNorm):
         self.mode = 'ln'
 
     def get_MN(self, x):
-        bit = 7
-        N = torch.clamp(bit - torch.floor(torch.log2(x)), 0, 31)
-        M = torch.clamp(torch.floor(x * torch.pow(2, N)), 0, 2**(bit + 1) - 1)
+        bit = 8
+        N = torch.clamp(bit - 1 - torch.floor(torch.log2(x)), 0, 31)
+        M = torch.clamp(torch.floor(x * torch.pow(2, N)), 0, 2 ** bit - 1)
         return M, N
 
     def forward(self,
