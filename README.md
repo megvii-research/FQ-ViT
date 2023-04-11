@@ -56,7 +56,7 @@ Most existing quantization approaches are designed and tested on CNNs and lack p
 - Clone this repo.
 
 ```bash
-git clone https://github.com/linyang-zhh/FQ-ViT.git
+git clone https://github.com/megvii-research/FQ-ViT.git
 cd FQ-ViT
 ```
 
